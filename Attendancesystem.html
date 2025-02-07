@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Employee Attendance System</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .container {
+            max-width: 600px;
+            margin: auto;
+        }
+        .buttons button {
+            margin: 5px;
+            padding: 10px;
+            cursor: pointer;
+        }
+        #loginSection {
+            margin-bottom: 20px;
+        }
+        #clearButton {
+            display: none; /* Hidden from employees */
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div id="loginSection">
+            <h2>Employee Login</h2>
+            <input type="text" id="userId" placeholder="Enter User ID"><br><br>
+            <input type="password" id="password" placeholder="Enter Password"><br><br>
+            <button onclick="authenticateUser()">Login</button>
+        </div>
+        
+        <div id="attendanceSection" style="display: none;">
+            <h2>Attendance Management</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Login Time</th>
+                        <th>Logout Time</th>
+                        <th>Working Hours</th>
+                    </tr>
+                </thead>
+                <tbody id="attendanceBody"></tbody>
+            </table>
+            <div class="buttons">
+                <button onclick="logTime('login')">Log In</button>
+                <button onclick="logTime('logout')">Log Out</button>
+                <button onclick="saveAttendance()">Save Attendance</button>
+                <button id="clearButton" onclick="clearAttendance()">Clear Data (Admin Only)</button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const users = {
+            "Satya": "12345",
+            "Rahul": "pass123",
+            "Amit": "amit@456",
+            "Priya": "priya@789"
+        };
+
+        let loggedInUser = null;
+
+        function authenticateUser() {
+            let userId = document.getElementById("userId").value.trim();
+            let password = document.getElementById("password").value.trim();
+            
+            if (users[userId] && users[userId] === password) {
+                loggedInUser = userId;
+                document.getElementById("loginSection").style.display = "none";
+                document.getElementById("attendanceSection").style.display = "block";
+                loadAttendance();
+            } else {
+                alert("Invalid User ID or Password");
+            }
+        }
+
+        function logTime(type) {
+            if (!loggedInUser) return;
+            
+            let table = document.getElementById("attendanceBody");
+            let existingRow = Array.from(table.rows).find(row => row.cells[0].textContent === loggedInUser);
+            
+            if (!existingRow) {
+                let row = table.insertRow();
+                row.insertCell(0).textContent = loggedInUser;
+                row.insertCell(1).textContent = type === "login" ? new Date().toLocaleTimeString() : "";
+                row.insertCell(2).textContent = type === "logout" ? new Date().toLocaleTimeString() : "";
+                row.insertCell(3).textContent = "";
+            } else {
+                let timeCell = existingRow.cells[type === "login" ? 1 : 2];
+                if (!timeCell.textContent) {
+                    timeCell.textContent = new Date().toLocaleTimeString();
+                    if (type === "logout") {
+                        calculateWorkingHours(existingRow);
+                    }
+                    sendEmailNotification(loggedInUser, type, timeCell.textContent);
+                } else {
+                    alert("You have already logged " + type);
+                }
+            }
+        }
+
+        function calculateWorkingHours(row) {
+            let loginTime = row.cells[1].textContent;
+            let logoutTime = row.cells[2].textContent;
+            if (loginTime && logoutTime) {
+                let loginDate = new Date("1970-01-01 " + loginTime);
+                let logoutDate = new Date("1970-01-01 " + logoutTime);
+                let diff = (logoutDate - loginDate) / 1000;
+
+                let hours = Math.floor(diff / 3600);
+                let minutes = Math.floor((diff % 3600) / 60);
+                let seconds = diff % 60;
+
+                row.cells[3].textContent = `${hours}h ${minutes}m ${seconds}s`;
+            }
+        }
+
+        function saveAttendance() {
+            let data = [];
+            document.querySelectorAll("#attendanceBody tr").forEach(row => {
+                let name = row.cells[0].textContent;
+                let loginTime = row.cells[1].textContent;
+                let logoutTime = row.cells[2].textContent;
+                let workingHours = row.cells[3].textContent;
+                data.push({ name, loginTime, logoutTime, workingHours });
+            });
+            localStorage.setItem("attendanceData", JSON.stringify(data));
+            alert("Attendance saved successfully!");
+        }
+
+        function loadAttendance() {
+            let data = JSON.parse(localStorage.getItem("attendanceData")) || [];
+            let table = document.getElementById("attendanceBody");
+            table.innerHTML = "";
+            data.forEach(employee => {
+                let row = table.insertRow();
+                row.insertCell(0).textContent = employee.name;
+                row.insertCell(1).textContent = employee.loginTime || "";
+                row.insertCell(2).textContent = employee.logoutTime || "";
+                row.insertCell(3).textContent = employee.workingHours || "";
+            });
+        }
+
+        function clearAttendance() {
+            if (loggedInUser === "admin") {
+                localStorage.removeItem("attendanceData");
+                document.getElementById("attendanceBody").innerHTML = "";
+                alert("Attendance data cleared.");
+            } else {
+                alert("Only the admin can clear the data.");
+            }
+        }
+
+        function sendEmailNotification(user, type, time) {
+            let email = "sbmohapatra8@gmail.com";
+            let subject = `Attendance Notification - ${user}`;
+            let body = `User ${user} has ${type} at ${time}.`;
+            window.open(`mailto:${email}?subject=${subject}&body=${body}`);
+        }
+    </script>
+</body>
+</html>
